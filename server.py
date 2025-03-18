@@ -1,9 +1,12 @@
+import asyncio
+from bilibili_api import video
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("bilibili-mcp")
 
-# Add an addition tool
 @mcp.tool()
-def add(a: int, b: int) -> int:
-    """Add two numbers"""
-    return a + b
+def get_video_info(bvid: str) -> dict:
+    """Get video info by BV number"""
+    v = video.Video(bvid=bvid)
+    info = asyncio.run(v.get_info())
+    return info
