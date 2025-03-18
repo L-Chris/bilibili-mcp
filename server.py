@@ -5,8 +5,10 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("bilibili-mcp")
 
 @mcp.tool()
-def get_video_info(bvid: str) -> dict:
+async def get_video_info(bvid: str) -> dict:
     """Get video info by BV number"""
     v = video.Video(bvid=bvid)
-    info = asyncio.run(v.get_info())
+    info = await v.get_info()
     return info
+
+mcp.run()
