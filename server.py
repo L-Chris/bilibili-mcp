@@ -1,7 +1,7 @@
 import asyncio
 import os
 import aiohttp
-from bilibili_api import video, Credential
+from bilibili_api import video, Credential, search
 from mcp.server.fastmcp import FastMCP
 
 # 从环境变量获取认证信息
@@ -13,6 +13,12 @@ BUVID3 = os.getenv('buvid3')
 credential = Credential(sessdata=SESSDATA, bili_jct=BILI_JCT, buvid3=BUVID3)
 
 mcp = FastMCP("bilibili-mcp")
+
+@mcp.tool()
+async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> dict:
+    """搜索视频"""
+    search_result = await search.search_by_type(keyword, search_type=search.SearchObjectType.VIDEO, page=page, page_size=page_size)
+    return search_result
 
 @mcp.tool()
 async def get_video_info(bvid: str) -> dict:
@@ -48,6 +54,11 @@ async def get_video_subtitle(bvid: str) -> dict:
     async with aiohttp.ClientSession() as session:
         async with session.get(subtitle_url) as response:
             subtitle_content = await response.json()
-            return subtitle_content
+            # 提取并拼接所有字幕文本
+            if "body" in subtitle_content:
+                subtitle_text = "\n".join(item["content"] for item in subtitle_content["body"])
+                return subtitle_text
+            else:
+                return subtitle_content
 
 mcp.run()
