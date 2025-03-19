@@ -5,6 +5,7 @@ from datetime import datetime
 from tabulate import tabulate
 from bilibili_api import video, Credential, search
 from mcp.server.fastmcp import FastMCP
+from bcut_asr import get_audio_subtitle
 
 # 从环境变量获取认证信息
 SESSDATA = os.getenv('sessdata')
@@ -69,7 +70,24 @@ async def get_video_subtitle(bvid: str) -> dict:
             break
     
     if not target_subtitle:
-        return "没有找到AI生成的中文字幕"
+        url_res = v.get_download_url(cid=cid)
+        # 提取音频URL
+        audio_arr = url_res.get('dash', {}).get('audio', [])
+        if not audio_arr:
+            return "没有找到AI生成的中文字幕"
+            
+        # 获取最后一个音频（通常质量最高）
+        audio = audio_arr[-1]
+        # 选择合适的音频URL
+        audio_url = ""
+        backup_url = audio.get('backupUrl', [])
+        if backup_url and 'upos-sz' in backup_url[0]:
+            audio_url = audio['baseUrl']
+        else:
+            audio_url = backup_url[0] if backup_url else audio['baseUrl']
+        
+        asr_data = get_audio_subtitle(audio_url)
+        return asr_data
     
     # 确保 URL 有 HTTPS 前缀
     subtitle_url = target_subtitle["subtitle_url"]
