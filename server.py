@@ -55,6 +55,12 @@ async def get_video_info(bvid: str) -> dict:
     return info
 
 @mcp.tool()
+async def get_media_subtitle(url: str) -> dict:
+    """获取媒体文件的AI中文字幕"""
+    asr_data = get_audio_subtitle(url)
+    return asr_data
+
+@mcp.tool()
 async def get_video_subtitle(bvid: str) -> dict:
     """获取视频的AI中文字幕"""
     v = video.Video(bvid=bvid, credential=credential)
