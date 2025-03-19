@@ -1,6 +1,8 @@
 import asyncio
 import os
 import aiohttp
+from datetime import datetime
+from tabulate import tabulate
 from bilibili_api import video, Credential, search
 from mcp.server.fastmcp import FastMCP
 
@@ -15,10 +17,39 @@ credential = Credential(sessdata=SESSDATA, bili_jct=BILI_JCT, buvid3=BUVID3)
 mcp = FastMCP("bilibili-mcp")
 
 @mcp.tool()
-async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> dict:
+async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> str:
     """搜索视频"""
     search_result = await search.search_by_type(keyword, search_type=search.SearchObjectType.VIDEO, page=page, page_size=page_size)
-    return search_result
+    
+    # 准备表格数据
+    table_data = []
+    headers = ["发布日期", "标题", "UP主", "时长", "播放量", "点赞数", "类别", "bvid"]
+    
+    for video in search_result["result"]:
+        # 转换发布时间
+        pubdate = datetime.fromtimestamp(video["pubdate"]).strftime("%Y/%m/%d")
+        
+        # 转换时长
+        duration = video["duration"]
+        hours = duration // 3600
+        minutes = (duration % 3600) // 60
+        seconds = duration % 60
+        duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}" if hours > 0 else f"{minutes:02d}:{seconds:02d}"
+        
+        # 添加行数据
+        table_data.append([
+            pubdate,
+            video["title"],
+            video["author"],
+            duration_str,
+            video["play"],
+            video["like"],
+            video["typename"],
+            video["bvid"]
+        ])
+    
+    # 使用 tabulate 生成 Markdown 表格
+    return tabulate(table_data, headers=headers, tablefmt="pipe")
 
 @mcp.tool()
 async def get_video_info(bvid: str) -> dict:
