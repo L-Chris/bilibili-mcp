@@ -86,11 +86,14 @@ async def get_video_subtitle(bvid: str) -> dict:
         audio = audio_arr[-1]
         # 选择合适的音频URL
         audio_url = ""
-        backup_url = audio.get('backupUrl', [])
-        if backup_url and 'upos-sz' in backup_url[0]:
+        if '.mcdn.bilivideo.cn' in audio['baseUrl']:
             audio_url = audio['baseUrl']
         else:
-            audio_url = backup_url[0] if backup_url else audio['baseUrl']
+            backup_url = audio.get('backupUrl', [])
+            if backup_url and 'upos-sz' in backup_url[0]:
+                audio_url = audio['baseUrl']
+            else:
+                audio_url = backup_url[0] if backup_url else audio['baseUrl']
         
         asr_data = get_audio_subtitle(audio_url)
         return asr_data

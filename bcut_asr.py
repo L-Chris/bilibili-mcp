@@ -49,7 +49,7 @@ def get_audio_subtitle(url: str):
                 case ResultStateEnum.ERROR:
                     return APIError(task_resp.code, task_resp.msg)
                 case ResultStateEnum.COMPLETE:
-                    return task_resp.parse()
+                    return task_resp.parse().to_txt()
                 
             time.sleep(5)
     except Exception as e:
