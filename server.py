@@ -70,7 +70,7 @@ async def get_video_subtitle(bvid: str) -> dict:
             break
     
     if not target_subtitle:
-        url_res = v.get_download_url(cid=cid)
+        url_res = await v.get_download_url(cid=cid)
         # 提取音频URL
         audio_arr = url_res.get('dash', {}).get('audio', [])
         if not audio_arr:

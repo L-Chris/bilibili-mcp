@@ -8,6 +8,7 @@ from typing import Literal, Optional
 from enum import Enum
 from pydantic import BaseModel
 import re
+from urllib.parse import urlparse, parse_qs
 
 INFILE_FMT = ["flac", "aac", "m4a", "mp3", "wav"]
 OUTFILE_FMT = ["srt", "json", "lrc", "txt"]
@@ -28,9 +29,9 @@ API_CREATE_TASK = API_BASE_URL + "/task"
 # 查询结果
 API_QUERY_RESULT = API_BASE_URL + "/task/result"
 
-SUPPORT_SOUND_FORMAT = Literal["flac", "aac", "m4a", "mp3", "wav", "mp4"]
+SUPPORT_SOUND_FORMAT = Literal["flac", "aac", "m4a", "mp3", "wav", "mp4", "m4s"]
 
-INFILE_FMT = ["flac", "aac", "m4a", "mp3", "wav", "mp4"]
+INFILE_FMT = ["flac", "aac", "m4a", "mp3", "wav", "mp4", "m4s"]
 OUTFILE_FMT = ["srt", "json", "lrc", "txt"]
 
 headers = {
@@ -52,7 +53,7 @@ def get_audio_subtitle(url: str):
                 
             time.sleep(5)
     except Exception as e:
-        return APIError(400, "获取音频字幕失败")
+        return APIError(400, str(e) or "获取音频字幕失败")
 
 class APIError(Exception):
     "接口调用错误"
@@ -224,8 +225,23 @@ class BcutASR:
             
             if re.match(r'^https?://', file):
                 self.sound_url = file
-                suffix = data_fmt or file.split('.')[-1]
-                self.sound_name = 'audio.' + suffix
+                # 使用 urlparse 解析 URL
+                parsed_url = urlparse(file)
+                
+                # 获取后缀名的优先级：
+                # 1. 用户指定的 data_fmt
+                # 2. URL 路径中的后缀
+                # 3. 默认使用 m4s（B站音频格式）
+                if data_fmt:
+                    suffix = data_fmt
+                else:
+                    path = parsed_url.path.split('/')[-1]  # 获取文件名部分
+                    if '.' in path:
+                        suffix = path.split('.')[-1]
+                    else:
+                        suffix = 'm4s'  # B站默认音频格式
+                
+                self.sound_name = f'audio.{suffix}'
                 self.__download_url = file
             else:
                 # 文件类
@@ -241,7 +257,7 @@ class BcutASR:
         else:
             raise ValueError("none set data")
         if suffix not in SUPPORT_SOUND_FORMAT.__args__:
-            raise TypeError("format is not support")
+            raise TypeError(f"format {suffix} is not support")
         self.sound_fmt = suffix
         logging.info(f"加载文件成功: {self.sound_name}")
 
