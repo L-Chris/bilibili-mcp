@@ -29,19 +29,14 @@ async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> str:
         # 转换发布时间
         pubdate = datetime.fromtimestamp(video["pubdate"]).strftime("%Y/%m/%d")
         
-        # 转换时长
-        duration = video["duration"]
-        hours = duration // 3600
-        minutes = (duration % 3600) // 60
-        seconds = duration % 60
-        duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}" if hours > 0 else f"{minutes:02d}:{seconds:02d}"
+        # 将标题转换为Markdown链接格式
+        title_link = f"[{video['title']}]({video['arcurl']})"
         
-        # 添加行数据
         table_data.append([
             pubdate,
-            video["title"],
+            title_link,
             video["author"],
-            duration_str,
+            video["duration"],
             video["play"],
             video["like"],
             video["typename"],
