@@ -117,7 +117,7 @@ class ASRData(BaseModel):
 
     def to_txt(self) -> str:
         """转成 txt 格式字幕 (无时间标记)"""
-        return "\n".join(seg.transcript for seg in self.utterances)
+        return "".join(seg.transcript for seg in self.utterances)
 
     def to_srt(self) -> str:
         """转成 srt 格式字幕"""
