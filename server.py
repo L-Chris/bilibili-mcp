@@ -51,24 +51,7 @@ async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> str:
     # 使用 tabulate 生成 Markdown 表格
     return tabulate(table_data, headers=headers, tablefmt="pipe")
 
-@mcp.tool("get_video_info", description="获取bilibili视频信息")
-async def get_video_info(bvid: str) -> dict:
-    """
-    bvid: 视频BV号
-    """
-    v = video.Video(bvid=bvid, credential=credential)
-    info = await v.get_info()
-    return info
-
-@mcp.tool("get_media_subtitle", description="获取媒体文件的AI中文字幕")
-async def get_media_subtitle(url: str) -> dict:
-    """
-    url: 媒体文件URL
-    """
-    asr_data = get_audio_subtitle(url)
-    return asr_data
-
-@mcp.tool("get_video_subtitle", description="获取bilibili视频的AI中文字幕")
+@mcp.tool("get_video_subtitle", description="获取bilibili视频的字幕，需提供视频BV号")
 async def get_video_subtitle(bvid: str) -> dict:
     """
     bvid: 视频BV号
@@ -123,5 +106,22 @@ async def get_video_subtitle(bvid: str) -> dict:
                 return subtitle_text
             else:
                 return subtitle_content
+
+@mcp.tool("get_video_info", description="获取bilibili视频信息，需提供视频BV号")
+async def get_video_info(bvid: str) -> dict:
+    """
+    bvid: 视频BV号
+    """
+    v = video.Video(bvid=bvid, credential=credential)
+    info = await v.get_info()
+    return info
+
+@mcp.tool("get_media_subtitle", description="获取媒体文件的AI中文字幕，需提供媒体文件URL")
+async def get_media_subtitle(url: str) -> dict:
+    """
+    url: 媒体文件URL
+    """
+    asr_data = get_audio_subtitle(url)
+    return asr_data
 
 mcp.run()
