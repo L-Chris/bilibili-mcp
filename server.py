@@ -17,9 +17,13 @@ credential = Credential(sessdata=SESSDATA, bili_jct=BILI_JCT, buvid3=BUVID3)
 
 mcp = FastMCP("bilibili-mcp")
 
-@mcp.tool()
+@mcp.tool("search_video", description="搜索bilibili视频")
 async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> str:
-    """搜索视频"""
+    """
+    keyword: 搜索关键词
+    page: 页码，默认1
+    page_size: 每页数量，默认20
+    """
     search_result = await search.search_by_type(keyword, search_type=search.SearchObjectType.VIDEO, page=page, page_size=page_size)
     
     # 准备表格数据
@@ -47,22 +51,28 @@ async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> str:
     # 使用 tabulate 生成 Markdown 表格
     return tabulate(table_data, headers=headers, tablefmt="pipe")
 
-@mcp.tool()
+@mcp.tool("get_video_info", description="获取bilibili视频信息")
 async def get_video_info(bvid: str) -> dict:
-    """Get video info by BV number"""
+    """
+    bvid: 视频BV号
+    """
     v = video.Video(bvid=bvid, credential=credential)
     info = await v.get_info()
     return info
 
-@mcp.tool()
+@mcp.tool("get_media_subtitle", description="获取媒体文件的AI中文字幕")
 async def get_media_subtitle(url: str) -> dict:
-    """获取媒体文件的AI中文字幕"""
+    """
+    url: 媒体文件URL
+    """
     asr_data = get_audio_subtitle(url)
     return asr_data
 
-@mcp.tool()
+@mcp.tool("get_video_subtitle", description="获取bilibili视频的AI中文字幕")
 async def get_video_subtitle(bvid: str) -> dict:
-    """获取视频的AI中文字幕"""
+    """
+    bvid: 视频BV号
+    """
     v = video.Video(bvid=bvid, credential=credential)
     cid = await v.get_cid(page_index=0)
     info = await v.get_player_info(cid=cid)
