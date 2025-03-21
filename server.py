@@ -102,7 +102,7 @@ async def get_video_subtitle(bvid: str) -> dict:
             subtitle_content = await response.json()
             # 提取并拼接所有字幕文本
             if "body" in subtitle_content:
-                subtitle_text = "\n".join(item["content"] for item in subtitle_content["body"])
+                subtitle_text = "".join(item["content"] for item in subtitle_content["body"])
                 return subtitle_text
             else:
                 return subtitle_content
