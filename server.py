@@ -5,7 +5,7 @@ from datetime import datetime
 from tabulate import tabulate
 from bilibili_api import video, Credential, search
 from mcp.server.fastmcp import FastMCP
-from bcut_asr import get_audio_subtitle
+from bcut_asr import get_audio_subtitle_async
 
 # 从环境变量获取认证信息
 SESSDATA = os.getenv('sessdata')
@@ -59,12 +59,12 @@ async def get_video_subtitle(bvid: str) -> dict:
     v = video.Video(bvid=bvid, credential=credential)
     cid = await v.get_cid(page_index=0)
     info = await v.get_player_info(cid=cid)
-    json_files = info["subtitle"]["subtitles"]
+    json_files = info.get("subtitle", {}).get("subtitles", [])
     
     # 过滤查找符合条件的字幕
     target_subtitle = None
     for subtitle in json_files:
-        if subtitle["lan"] == "ai-zh" and subtitle["lan_doc"] == "中文（自动生成）":
+        if subtitle.get("lan") == "ai-zh":
             target_subtitle = subtitle
             break
     
@@ -88,7 +88,7 @@ async def get_video_subtitle(bvid: str) -> dict:
             else:
                 audio_url = backup_url[0] if backup_url else audio['baseUrl']
         
-        asr_data = get_audio_subtitle(audio_url)
+        asr_data = await get_audio_subtitle_async(audio_url)
         return asr_data
     
     # 确保 URL 有 HTTPS 前缀
@@ -121,7 +121,7 @@ async def get_media_subtitle(url: str) -> dict:
     """
     url: 媒体文件URL
     """
-    asr_data = get_audio_subtitle(url)
+    asr_data = await get_audio_subtitle_async(url)
     return asr_data
 
 mcp.run()

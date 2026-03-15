@@ -1,3 +1,4 @@
+import asyncio
 import requests
 import logging
 import sys
@@ -39,7 +40,10 @@ headers = {
     "Cache-Control": "no-cache"
 }
 
-def get_audio_subtitle(url: str):
+POLL_INTERVAL_SECONDS = 5
+
+
+def get_audio_subtitle(url: str) -> str:
     asr = BcutASR(file=url)
     try:
         task_id = asr.create_task()
@@ -47,13 +51,19 @@ def get_audio_subtitle(url: str):
             task_resp = asr.result(task_id)
             match task_resp.state:
                 case ResultStateEnum.ERROR:
-                    return APIError(task_resp.code, task_resp.msg)
+                    raise APIError(400, task_resp.remark or "获取音频字幕失败")
                 case ResultStateEnum.COMPLETE:
                     return task_resp.parse().to_txt()
                 
-            time.sleep(5)
+            time.sleep(POLL_INTERVAL_SECONDS)
+    except APIError:
+        raise
     except Exception as e:
-        return APIError(400, str(e) or "获取音频字幕失败")
+        raise APIError(400, str(e) or "获取音频字幕失败") from e
+
+
+async def get_audio_subtitle_async(url: str) -> str:
+    return await asyncio.to_thread(get_audio_subtitle, url)
 
 class APIError(Exception):
     "接口调用错误"
@@ -179,12 +189,14 @@ class ResultRspSchema(BaseModel):
     """任务结果查询响应"""
 
     task_id: str  # 任务id
-    result: str  # 结果数据-json
-    remark: str  # 任务状态详情
+    result: Optional[str] = None  # 结果数据-json
+    remark: str = ""  # 任务状态详情
     state: ResultStateEnum  # 任务状态
 
     def parse(self) -> ASRData:
         "解析结果数据"
+        if not self.result:
+            raise ValueError("语音识别结果为空")
         return ASRData.model_validate_json(self.result)
 
 
