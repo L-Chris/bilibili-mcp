@@ -1,6 +1,7 @@
 mcp
 bilibili-api-python
 aiohttp
+brotlicffi
 requests
 pydantic
 tabulate
