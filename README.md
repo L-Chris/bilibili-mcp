@@ -90,9 +90,17 @@
 
 ### 最新变更
 
+**修复 Brotli 解码错误**
 - 新增 `brotlicffi` 依赖，修复 aiohttp 3.13+ 无法解码 B站返回的 `Content-Encoding: br` 响应的问题，影响所有工具（`search_video`、`get_video_info`、`get_video_subtitle`）
-- 优化音频字幕获取逻辑，支持 mp4/m4s 格式
-- 改进音频 URL 选择策略，优先使用稳定的 CDN 地址
+
+**字幕获取优化（PR #1 by [@Zhao-zzzzZ](https://github.com/Zhao-zzzzZ)）**
+- 修复 `get_video_subtitle`：字幕列表获取改用 `.get()` 安全访问，避免视频无字幕时崩溃
+- 修复 AI 字幕语言匹配条件，放宽为只需 `lan == "ai-zh"`，兼容更多视频
+- 异步化音频字幕获取：`get_audio_subtitle` 改为通过 `asyncio.to_thread` 包装为异步，避免阻塞事件循环
+- 修复错误处理：`get_audio_subtitle` 将错误由返回值改为正确抛出 `APIError` 异常
+- 修复 `ResultRspSchema` 模型：`result` 和 `remark` 字段改为可选，避免解析失败
+- 补全 `requirements.txt` 缺失的 `requests`、`pydantic`、`tabulate` 依赖
+- 支持音频格式扩展至 mp4/m4s，改进音频 URL 选择策略
 
 ## 许可证
 

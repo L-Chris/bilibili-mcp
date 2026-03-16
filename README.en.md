@@ -81,13 +81,21 @@
 - [aiohttp](https://docs.aiohttp.org/): 异步HTTP客户端/服务器框架
 - [brotlicffi](https://github.com/python-hyper/brotlicffi): Brotli 压缩解码支持（修复 aiohttp 3.13+ 与 B站 API 的 `br` 内容编码兼容问题）
 
-## 更新日志
+## Changelog
 
-### 最新变更
+### Latest Changes
 
-- 新增 `brotlicffi` 依赖，修复 aiohttp 3.13+ 无法解码 B站返回的 `Content-Encoding: br` 响应的问题，影响所有工具（`search_video`、`get_video_info`、`get_video_subtitle`）
-- 优化音频字幕获取逻辑，支持 mp4/m4s 格式
-- 改进音频 URL 选择策略，优先使用稳定的 CDN 地址
+**Fix Brotli decode error**
+- Added `brotlicffi` dependency to fix `Content-Encoding: br` decode failure in aiohttp 3.13+, affecting all tools (`search_video`, `get_video_info`, `get_video_subtitle`)
+
+**Subtitle retrieval improvements (PR #1 by [@Zhao-zzzzZ](https://github.com/Zhao-zzzzZ))**
+- Fixed `get_video_subtitle`: use `.get()` for safe subtitle list access to prevent crashes when no subtitle exists
+- Relaxed AI subtitle language match to `lan == "ai-zh"` only, improving compatibility
+- Made audio subtitle retrieval async via `asyncio.to_thread` to avoid blocking the event loop
+- Fixed error handling: `get_audio_subtitle` now raises `APIError` instead of returning it
+- Fixed `ResultRspSchema`: made `result` and `remark` fields optional to prevent parse failures
+- Added missing `requests`, `pydantic`, `tabulate` to `requirements.txt`
+- Extended supported audio formats to mp4/m4s with improved CDN URL selection
 
 ## 资源
 
