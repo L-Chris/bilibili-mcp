@@ -15,7 +15,13 @@ BUVID3 = os.getenv('buvid3')
 # 初始化 Credential
 credential = Credential(sessdata=SESSDATA, bili_jct=BILI_JCT, buvid3=BUVID3)
 
-mcp = FastMCP("bilibili-mcp")
+MCP_HOST = os.getenv('MCP_HOST', '127.0.0.1')
+try:
+    MCP_PORT = int(os.getenv('MCP_PORT', '8000'))
+except ValueError:
+    MCP_PORT = 8000
+
+mcp = FastMCP("bilibili-mcp", host=MCP_HOST, port=MCP_PORT)
 
 @mcp.tool("search_video", description="搜索bilibili视频")
 async def search_video(keyword: str, page: int = 1, page_size: int = 20) -> str:
@@ -124,4 +130,4 @@ async def get_media_subtitle(url: str) -> dict:
     asr_data = await get_audio_subtitle_async(url)
     return asr_data
 
-mcp.run()
+mcp.run(transport=os.getenv('MCP_TRANSPORT', 'stdio'))
