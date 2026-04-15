@@ -5,3 +5,4 @@ brotlicffi
 requests
 pydantic
 tabulate
+flask

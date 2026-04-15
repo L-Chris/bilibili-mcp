@@ -4,6 +4,10 @@
 
 这个MCP服务器提供了搜索和交互B站（哔哩哔哩）内容的功能，包括视频搜索、字幕获取和视频信息查询等。
 
+现在同时提供两种服务：
+- MCP 服务（默认 `8000`，SSE/stdio）
+- Flask REST API 服务（默认 `8001`）
+
 ## 功能特点
 
 - 搜索B站视频
@@ -47,6 +51,20 @@
    - `buvid3`: B站buvid3
 4. 启动服务器: `python server.py`
 
+如需同时启动 MCP + Flask REST API：
+
+```bash
+python run_servers.py
+```
+
+### Flask REST API
+
+- `GET /health`
+- `GET /api/video/search?keyword=关键词&page=1&page_size=20`
+- `GET /api/video/info/<bvid>`
+- `GET /api/video/subtitle/<bvid>`
+- `POST /api/media/subtitle`，JSON body: `{ "url": "媒体地址" }`
+
 ### 与桌面应用集成
 
 要将此服务器与桌面应用集成，请在应用的服务器配置中添加以下内容:
@@ -73,6 +91,7 @@
 
 - 安装依赖: `pip install -r requirements.txt`
 - 启动服务器: `python server.py`
+- 同时启动 MCP + Flask: `python run_servers.py`
 
 ## 依赖项
 

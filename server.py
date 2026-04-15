@@ -130,4 +130,5 @@ async def get_media_subtitle(url: str) -> dict:
     asr_data = await get_audio_subtitle_async(url)
     return asr_data
 
-mcp.run(transport=os.getenv('MCP_TRANSPORT', 'stdio'))
+if __name__ == "__main__":
+    mcp.run(transport=os.getenv('MCP_TRANSPORT', 'stdio'))
