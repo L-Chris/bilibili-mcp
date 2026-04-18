@@ -28,6 +28,7 @@ async def _search_video_async(keyword: str, page: int = 1, page_size: int = 20) 
         search_type=search.SearchObjectType.VIDEO,
         page=page,
         page_size=page_size,
+        order_type=search.OrderVideo.TOTALRANK,
     )
 
     items = []
