@@ -1,5 +1,7 @@
 import asyncio
+import logging
 import os
+import sys
 from datetime import datetime
 
 import aiohttp
@@ -97,6 +99,18 @@ async def _get_video_info_async(bvid: str) -> dict:
     return await v.get_info()
 
 
+async def _get_video_pbp_async(bvid: str, page_index: int | None = None, cid: int | None = None):
+    v = video.Video(bvid=bvid, credential=credential)
+
+    if cid is None and page_index is None:
+        page_index = 0
+
+    if cid is None:
+        cid = await v.get_cid(page_index=page_index)
+
+    return await v.get_pbp(page_index=page_index, cid=cid)
+
+
 async def _get_media_subtitle_async(url: str):
     return await get_audio_subtitle_async(url)
 
@@ -131,6 +145,18 @@ def video_info_api(bvid: str):
         return jsonify({"error": str(exc)}), 500
 
 
+@app.route("/api/video/pbp/<string:bvid>", methods=["GET"])
+def video_pbp_api(bvid: str):
+    page_index = request.args.get("page_index", type=int)
+    cid = request.args.get("cid", type=int)
+
+    try:
+        data = _run_async(_get_video_pbp_async(bvid, page_index=page_index, cid=cid))
+        return jsonify(data)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 @app.route("/api/video/subtitle/<string:bvid>", methods=["GET"])
 def video_subtitle_api(bvid: str):
     try:
@@ -154,7 +180,22 @@ def media_subtitle_api():
         return jsonify({"error": str(exc)}), 500
 
 
+def configure_flask_logging():
+    """避免 Flask/Werkzeug access log 被 root logger 重复打印。"""
+    werkzeug_logger = logging.getLogger("werkzeug")
+    werkzeug_logger.handlers.clear()
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    werkzeug_logger.addHandler(handler)
+
+    werkzeug_logger.setLevel(logging.INFO)
+    werkzeug_logger.propagate = False
+
+
 def run_flask_server():
+    configure_flask_logging()
+
     flask_host = os.getenv("FLASK_HOST", "0.0.0.0")
     try:
         flask_port = int(os.getenv("FLASK_PORT", "8001"))
