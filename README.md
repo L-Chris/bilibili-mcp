@@ -20,16 +20,20 @@
 ### 工具
 
 - **search_video**
-  - 从B站搜索视频
+  - 从B站搜索视频，支持按发布时间范围和排序方式筛选
   - 输入:
     - `keyword` (string): 搜索关键词
     - `page` (int, 可选): 页码，默认1
     - `page_size` (int, 可选): 每页数量，默认20
+    - `time_start` (string, 可选): 发布时间起始，格式 YYYY-MM-DD
+    - `time_end` (string, 可选): 发布时间截止，格式 YYYY-MM-DD
+    - `order_type` (string, 可选): 排序方式，可选 totalrank(综合)/click(播放量)/pubdate(发布时间)/dm(弹幕)/stow(收藏)/scores(评论)，默认 totalrank
 
 - **get_video_subtitle**
   - 获取B站视频的字幕
   - 输入:
     - `bvid` (string): 视频的BV号
+    - `format` (string, 可选): 字幕格式，可选 txt(纯文本，默认)/srt(带时间戳)/raw(原始时间戳数据)
 
 - **get_video_info**
   - 获取B站视频的详细信息
@@ -40,6 +44,7 @@
   - 使用必剪API获取媒体文件的AI中文字幕
   - 输入:
     - `url` (string): 媒体文件URL
+    - `format` (string, 可选): 字幕格式，同上
 
 ## 开始使用
 
@@ -59,11 +64,13 @@ python run_servers.py
 
 ### Flask REST API
 
+- `GET /api` — 返回所有可用接口及其参数说明
 - `GET /health`
-- `GET /api/video/search?keyword=关键词&page=1&page_size=20`
+- `GET /api/video/search?keyword=关键词&page=1&page_size=20&time_start=2024-01-01&time_end=2024-06-30&order_type=pubdate`
 - `GET /api/video/info/<bvid>`
-- `GET /api/video/subtitle/<bvid>`
-- `POST /api/media/subtitle`，JSON body: `{ "url": "媒体地址" }`
+- `GET /api/video/pbp/<bvid>?page_index=0`
+- `GET /api/video/subtitle/<bvid>?format=txt`
+- `POST /api/media/subtitle`，JSON body: `{ "url": "媒体地址", "format": "txt" }`
 
 ### 与桌面应用集成
 

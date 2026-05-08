@@ -24,20 +24,38 @@ def _run_async(coro):
     return asyncio.run(coro)
 
 
-async def _search_video_async(keyword: str, page: int = 1, page_size: int = 20) -> dict:
+ORDER_MAP = {
+    "totalrank": search.OrderVideo.TOTALRANK,
+    "click": search.OrderVideo.CLICK,
+    "pubdate": search.OrderVideo.PUBDATE,
+    "dm": search.OrderVideo.DM,
+    "stow": search.OrderVideo.STOW,
+    "scores": search.OrderVideo.SCORES,
+}
+
+
+async def _search_video_async(
+    keyword: str,
+    page: int = 1,
+    page_size: int = 20,
+    time_start: str = "",
+    time_end: str = "",
+    order_type: str = "totalrank",
+) -> dict:
     search_result = await search.search_by_type(
         keyword,
         search_type=search.SearchObjectType.VIDEO,
         page=page,
         page_size=page_size,
-        order_type=search.OrderVideo.TOTALRANK,
+        time_start=time_start or None,
+        time_end=time_end or None,
+        order_type=ORDER_MAP.get(order_type, search.OrderVideo.TOTALRANK),
     )
 
     items = []
 
     for item in search_result.get("result", []):
-        # 打印item
-        item['pubdate'] = datetime.fromtimestamp(item["pubdate"]).strftime("%Y/%m/%d")
+        item["pubdate"] = datetime.fromtimestamp(item["pubdate"]).strftime("%Y/%m/%d")
         items.append(item)
 
     return {
@@ -49,7 +67,7 @@ async def _search_video_async(keyword: str, page: int = 1, page_size: int = 20) 
     }
 
 
-async def _get_video_subtitle_async(bvid: str):
+async def _get_video_subtitle_async(bvid: str, format: str = "txt"):
     v = video.Video(bvid=bvid, credential=credential)
     cid = await v.get_cid(page_index=0)
     info = await v.get_player_info(cid=cid)
@@ -78,8 +96,7 @@ async def _get_video_subtitle_async(bvid: str):
             else:
                 audio_url = backup_url[0] if backup_url else audio["baseUrl"]
 
-        asr_data = await get_audio_subtitle_async(audio_url)
-        return asr_data
+        return await get_audio_subtitle_async(audio_url, format)
 
     subtitle_url = target_subtitle["subtitle_url"]
     if not subtitle_url.startswith(("http://", "https://")):
@@ -88,10 +105,17 @@ async def _get_video_subtitle_async(bvid: str):
     async with aiohttp.ClientSession() as session:
         async with session.get(subtitle_url) as response:
             subtitle_content = await response.json()
-            if "body" in subtitle_content:
-                subtitle_text = "".join(item["content"] for item in subtitle_content["body"])
-                return subtitle_text
-            return subtitle_content
+            if "body" not in subtitle_content:
+                return subtitle_content
+
+            if format == "srt":
+                lines = []
+                for n, item in enumerate(subtitle_content["body"], 1):
+                    lines.append(f"{n}\n{item['from']:.3f} --> {item['to']:.3f}\n{item['content']}\n")
+                return "\n".join(lines)
+            elif format == "raw":
+                return subtitle_content["body"]
+            return "".join(item["content"] for item in subtitle_content["body"])
 
 
 async def _get_video_info_async(bvid: str) -> dict:
@@ -111,8 +135,51 @@ async def _get_video_pbp_async(bvid: str, page_index: int | None = None, cid: in
     return await v.get_pbp(page_index=page_index, cid=cid)
 
 
-async def _get_media_subtitle_async(url: str):
-    return await get_audio_subtitle_async(url)
+async def _get_media_subtitle_async(url: str, format: str = "txt"):
+    return await get_audio_subtitle_async(url, format)
+
+
+ENDPOINT_PARAMS = {
+    "/api/video/search": [
+        {"name": "keyword", "type": "str", "required": True, "desc": "搜索关键词"},
+        {"name": "page", "type": "int", "required": False, "default": 1, "desc": "页码"},
+        {"name": "page_size", "type": "int", "required": False, "default": 20, "desc": "每页数量"},
+        {"name": "time_start", "type": "str", "required": False, "default": "", "desc": "发布时间起始，格式 YYYY-MM-DD"},
+        {"name": "time_end", "type": "str", "required": False, "default": "", "desc": "发布时间截止，格式 YYYY-MM-DD"},
+        {"name": "order_type", "type": "str", "required": False, "default": "totalrank", "desc": "排序方式: totalrank/click/pubdate/dm/stow/scores"},
+    ],
+    "/api/video/info/<string:bvid>": [
+        {"name": "bvid", "type": "str (path)", "required": True, "desc": "视频BV号"},
+    ],
+    "/api/video/pbp/<string:bvid>": [
+        {"name": "bvid", "type": "str (path)", "required": True, "desc": "视频BV号"},
+        {"name": "page_index", "type": "int", "required": False, "default": 0, "desc": "分P索引"},
+        {"name": "cid", "type": "int", "required": False, "desc": "分P的cid，优先于page_index"},
+    ],
+    "/api/video/subtitle/<string:bvid>": [
+        {"name": "bvid", "type": "str (path)", "required": True, "desc": "视频BV号"},
+        {"name": "format", "type": "str", "required": False, "default": "txt", "desc": "字幕格式: txt(纯文本)/srt(带时间戳)/raw(原始时间戳数据)"},
+    ],
+    "/api/media/subtitle": [
+        {"name": "url", "type": "str (body)", "required": True, "desc": "媒体文件URL"},
+        {"name": "format", "type": "str (body)", "required": False, "default": "txt", "desc": "字幕格式: txt(纯文本)/srt(带时间戳)/raw(原始时间戳数据)"},
+    ],
+}
+
+
+@app.route("/api", methods=["GET"])
+def api_index():
+    endpoints = []
+    for rule in sorted(app.url_map.iter_rules(), key=lambda r: r.rule):
+        if rule.rule in ("/api", "/health") or rule.rule.startswith("/static"):
+            continue
+        params = ENDPOINT_PARAMS.get(rule.rule, [])
+        endpoints.append({
+            "path": rule.rule,
+            "methods": sorted(rule.methods - {"OPTIONS", "HEAD"}),
+            "params": params,
+        })
+    return jsonify({"service": "bilibili-mcp-flask", "endpoints": endpoints})
 
 
 @app.route("/health", methods=["GET"])
@@ -128,9 +195,12 @@ def search_video_api():
 
     page = request.args.get("page", default=1, type=int)
     page_size = request.args.get("page_size", default=20, type=int)
+    time_start = request.args.get("time_start", default="", type=str)
+    time_end = request.args.get("time_end", default="", type=str)
+    order_type = request.args.get("order_type", default="totalrank", type=str)
 
     try:
-        data = _run_async(_search_video_async(keyword, page, page_size))
+        data = _run_async(_search_video_async(keyword, page, page_size, time_start, time_end, order_type))
         return jsonify(data)
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
@@ -159,8 +229,9 @@ def video_pbp_api(bvid: str):
 
 @app.route("/api/video/subtitle/<string:bvid>", methods=["GET"])
 def video_subtitle_api(bvid: str):
+    format = request.args.get("format", default="txt", type=str)
     try:
-        data = _run_async(_get_video_subtitle_async(bvid))
+        data = _run_async(_get_video_subtitle_async(bvid, format))
         return jsonify({"bvid": bvid, "subtitle": data})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
@@ -172,9 +243,10 @@ def media_subtitle_api():
     url = str(payload.get("url", "")).strip()
     if not url:
         return jsonify({"error": "url is required"}), 400
+    format = str(payload.get("format", "txt"))
 
     try:
-        data = _run_async(_get_media_subtitle_async(url))
+        data = _run_async(_get_media_subtitle_async(url, format))
         return jsonify({"url": url, "subtitle": data})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500

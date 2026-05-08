@@ -43,7 +43,11 @@ headers = {
 POLL_INTERVAL_SECONDS = 5
 
 
-def get_audio_subtitle(url: str) -> str:
+def _ms_to_s(ms: int) -> float:
+    return ms / 1000.0
+
+
+def get_audio_subtitle(url: str, format: str = "txt") -> str | list[dict]:
     asr = BcutASR(file=url)
     try:
         task_id = asr.create_task()
@@ -53,8 +57,16 @@ def get_audio_subtitle(url: str) -> str:
                 case ResultStateEnum.ERROR:
                     raise APIError(400, task_resp.remark or "获取音频字幕失败")
                 case ResultStateEnum.COMPLETE:
-                    return task_resp.parse().to_txt()
-                
+                    asr_data = task_resp.parse()
+                    if format == "srt":
+                        return asr_data.to_srt()
+                    elif format == "raw":
+                        return [
+                            {"from": _ms_to_s(seg.start_time), "to": _ms_to_s(seg.end_time), "content": seg.transcript}
+                            for seg in asr_data.utterances
+                        ]
+                    return asr_data.to_txt()
+
             time.sleep(POLL_INTERVAL_SECONDS)
     except APIError:
         raise
@@ -62,8 +74,8 @@ def get_audio_subtitle(url: str) -> str:
         raise APIError(400, str(e) or "获取音频字幕失败") from e
 
 
-async def get_audio_subtitle_async(url: str) -> str:
-    return await asyncio.to_thread(get_audio_subtitle, url)
+async def get_audio_subtitle_async(url: str, format: str = "txt") -> str | list[dict]:
+    return await asyncio.to_thread(get_audio_subtitle, url, format)
 
 class APIError(Exception):
     "接口调用错误"
