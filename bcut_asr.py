@@ -47,7 +47,9 @@ def _ms_to_s(ms: int) -> float:
     return ms / 1000.0
 
 
-def get_audio_subtitle(url: str, format: str = "txt") -> str | list[dict]:
+def _try_url_asr(url: str, format: str) -> str | list[dict] | None:
+    """尝试直接传 URL 给 Bcut（更快），失败返回 None"""
+    logging.info(f"尝试直传 URL 方案: {url[:80]}...")
     asr = BcutASR(file=url)
     try:
         task_id = asr.create_task()
@@ -55,7 +57,7 @@ def get_audio_subtitle(url: str, format: str = "txt") -> str | list[dict]:
             task_resp = asr.result(task_id)
             match task_resp.state:
                 case ResultStateEnum.ERROR:
-                    raise APIError(400, task_resp.remark or "获取音频字幕失败")
+                    return None
                 case ResultStateEnum.COMPLETE:
                     asr_data = task_resp.parse()
                     if format == "srt":
@@ -66,12 +68,59 @@ def get_audio_subtitle(url: str, format: str = "txt") -> str | list[dict]:
                             for seg in asr_data.utterances
                         ]
                     return asr_data.to_txt()
-
             time.sleep(POLL_INTERVAL_SECONDS)
-    except APIError:
-        raise
-    except Exception as e:
-        raise APIError(400, str(e) or "获取音频字幕失败") from e
+    except Exception:
+        return None
+
+
+def _try_download_asr(url: str, format: str) -> str | list[dict]:
+    """下载音频后上传到 Bcut（回退方案）"""
+    logging.info(f"直传失败，回退到下载方案: {url[:80]}...")
+    resp = requests.get(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.bilibili.com",
+        },
+        timeout=120,
+    )
+    resp.raise_for_status()
+
+    path = url.split("?")[0].split("/")[-1]
+    suffix = path.split(".")[-1] if "." in path else "m4s"
+    if suffix in ("m4s",):
+        suffix = "m4a"
+
+    asr = BcutASR()
+    asr.set_data(raw_data=resp.content, data_fmt=suffix)
+    asr.sound_url = url
+    asr.upload()
+
+    task_id = asr.create_task()
+    while True:
+        task_resp = asr.result(task_id)
+        match task_resp.state:
+            case ResultStateEnum.ERROR:
+                raise APIError(400, task_resp.remark or "获取音频字幕失败")
+            case ResultStateEnum.COMPLETE:
+                asr_data = task_resp.parse()
+                if format == "srt":
+                    return asr_data.to_srt()
+                elif format == "raw":
+                    return [
+                        {"from": _ms_to_s(seg.start_time), "to": _ms_to_s(seg.end_time), "content": seg.transcript}
+                        for seg in asr_data.utterances
+                    ]
+                return asr_data.to_txt()
+        time.sleep(POLL_INTERVAL_SECONDS)
+
+
+def get_audio_subtitle(url: str, format: str = "txt") -> str | list[dict]:
+    result = _try_url_asr(url, format)
+    if result is not None:
+        logging.info("直传 URL 方案成功")
+        return result
+    return _try_download_asr(url, format)
 
 
 async def get_audio_subtitle_async(url: str, format: str = "txt") -> str | list[dict]:
@@ -287,7 +336,7 @@ class BcutASR:
 
     def upload(self) -> None:
         "申请上传"
-        if not self.sound_bin or not self.sound_fmt or not self.sound_url:
+        if not self.sound_bin or not self.sound_fmt:
             raise ValueError("none set data")
         resp = self.session.post(
             API_REQ_UPLOAD,

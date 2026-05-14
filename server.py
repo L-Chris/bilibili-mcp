@@ -107,15 +107,15 @@ async def get_video_subtitle(bvid: str, format: str = "txt") -> dict:
             return "没有找到AI生成的中文字幕"
 
         audio = audio_arr[-1]
+        # 优先选 mcdn URL（Bcut 只能访问 B站内部 CDN）
+        all_urls = [audio['baseUrl']] + audio.get('backupUrl', [])
         audio_url = ""
-        if '.mcdn.bilivideo.cn' in audio['baseUrl']:
+        for u in all_urls:
+            if '.mcdn.bilivideo.cn' in u:
+                audio_url = u
+                break
+        if not audio_url:
             audio_url = audio['baseUrl']
-        else:
-            backup_url = audio.get('backupUrl', [])
-            if backup_url and 'upos-sz' in backup_url[0]:
-                audio_url = audio['baseUrl']
-            else:
-                audio_url = backup_url[0] if backup_url else audio['baseUrl']
 
         return await get_audio_subtitle_async(audio_url, format)
 
